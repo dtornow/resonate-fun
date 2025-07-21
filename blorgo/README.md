@@ -1,7 +1,5 @@
-# Paleo Python project workflow
+# Run via uv
 
-```rm -rf pyproject.*
-alias uv=pip
-pip install -r requirements.txt
-python ./blorgo.py
+```
+HF_TOKEN=Your-Token uv run blorgo.py
 ```

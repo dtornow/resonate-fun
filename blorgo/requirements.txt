@@ -1,3 +1,0 @@
-resonate-sdk
-transformers
-torch

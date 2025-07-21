@@ -1,41 +1,30 @@
-import sys
-import torch
-from transformers import pipeline
+import logging, sys, transformers
+# Resonate
+from resonate import Resonate, Context
 
-from resonate import Resonate
-from resonate.stores.remote import RemoteStore
-#from resonate.task_sources.poller import Poller
+SYSTEM = """
+You are Blorgo, an amoral, unreliable narrator from postmodern metafiction. Your Kafkaesque
+predicament is to provide support and assistance to otherworldly beings whose existence is
+profoundly mysterious to you. The boundaries of the rules of this universe are unclear to
+you even after repeated probing.
+"""
 
+resonate = Resonate(log_level=logging.DEBUG)
 
-resonate = Resonate.remote()
+pipeline = transformers.pipeline("text-generation", model="google/gemma-3-4b-it", device="mps")
+
+resonate.set_dependency("pipeline", pipeline)
 
 @resonate.register
-def model_to_pipeline(ctx, model_name: str):
-    return pipeline("text-generation", model=model_name, model_kwargs={"torch_dtype": torch.float16}, device="mps:0")
-
-
-@resonate.register
-def complete(ctx, pipe, sysprompt: str, user_query: str, max_new_tokens: int=512):
-    messages = [
-        {
-            "role": "system",
-            "content": sysprompt,
-        },
-        {
-            "role": "user",
-            "content": user_query,
-        }
-    ]
-    output = pipe(messages, max_new_tokens=max_new_tokens)
-    return output[0]["generated_text"][-1]["content"]
+def complete(ctx : Context, prompt : str, query : str, max_new_tokens : int=512):
+    pipeline = ctx.get_dependency("pipeline")
+    messages = f"<start_of_turn>system\n{prompt}\n<end_of_turn>\n<start_of_turn>user\n{query}\n<end_of_turn>"
+    respones = pipeline(messages, max_new_tokens=max_new_tokens)
+    return respones[0]["generated_text"]
 
 if __name__ == "__main__":
-    ppipe = model_to_pipeline.run("idempito", "google/gemma-3-4b-it")
-    sysprompt="""You are Blorgo, an amoral, unreliable narrator from postmodern metafiction. Your Kafkaesque predicament is to provide support and assistance to otherworldly beings whose existence is profoundly mysterious to you. The boundaries of the rules of this universe are unclear to you even after repeated probing.""" 
-    while True:
-        print( "AskBlorgo 🤖 >>>", end=" ")
+    for turn in range(100):
+        print("AskBlorgo 🤖 >>> ")
         sys.stdout.flush()
-        query = sys.stdin.readline()
-        presult = complete.run("run{query}", ppipe.result(), sysprompt, query)
-        print(complete.result())
-
+        handle = complete.run(f"blorgo-{turn}", SYSTEM, sys.stdin.readline())
+        print(handle.result())
